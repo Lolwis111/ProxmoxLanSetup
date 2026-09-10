@@ -1,10 +1,32 @@
 # ProxmoxLanSetup
 
+## Hardware setup
+
+- Xeon E5-2698v3
+- Asus X99-E WS
+- 4x 16GB DDR4
+- 4x Nvidia Quadro M2000
+- 1x NVMe boot drive 1TB
+- 2x USB Controller card
+- 1x Intel X520-DA2 networking (optional)
+
+### BIOS Settings
+
+- Enable VM Extension (Intel VT-x / AMD-V
+- Enable VM IOMMU (Intel VT-d / AMD-Vi)
+- Give each device own iommu group (Asus Board: ACS Option on)
+
+## Software Setup
+
+### Setup IOMMU
+
 add to /etc/kernel/cmdline:
 ```intel_iommu=on```
 
 then run:
 ```proxmox-boot-tool refresh```
+
+### Load Modules
 
 load the following modules (e.g. via /etc/modules):
 ```
@@ -13,6 +35,8 @@ vfio_iommu_type1
 vfio_pci
 vfio_virqfd
 ```
+
+### Unload Modules
 
 blacklist gpu drivers:
 ```
@@ -23,15 +47,25 @@ echo "blacklist nouveau" >> /etc/modprobe.d/blacklist.conf
 echo "blacklist nvidia" >> /etc/modprobe.d/blacklist.conf
 ```
 
-find gpus:
+### Find GPUs
+
 ```
 lspci | grep -i vga
 ```
 
-find details about gpus (replace 82:00 with id):
+sample output:
+```
+05:00.0 VGA compatible controller: NVIDIA Corporation GM206GL [Quadro M2000] (rev a1)
+07:00.0 VGA compatible controller: NVIDIA Corporation GM206GL [Quadro M2000] (rev a1)
+0b:00.0 VGA compatible controller: NVIDIA Corporation GM206GL [Quadro M2000] (rev a1)
+0d:00.0 VGA compatible controller: NVIDIA Corporation GM206GL [Quadro M2000] (rev a1)
+```
+
+find details about GPUs (replace 82:00 with id):
 ```
 lspci -n -s 82:00 -v
 ```
+
 sample output (id in this case 10de:1430):
 ```
 07:00.0 0300: 10de:1430 (rev a1) (prog-if 00 [VGA controller])
@@ -75,3 +109,16 @@ apply all changes:
 
 then:
 ```reboot```
+
+## VM Config
+### Virtual Hardware
+- 4 vCores per VM (pin cores for more performance)
+- 12 GB RAM (balloning=0 !!)
+- passthrough one of the GPUs from earlier
+- passthrough one USB Controller (or assign individual ports)
+- add network bridge with VirtIO
+- 100 GB vDisk with VirtIO SCSI Single Controller
+- *Important*: set BIOS to OVMF (UEFI)
+### Windows
+- Install Windows 10 as normal
+- Load VirtIO Driver ISO to detect harddisk and get network going
